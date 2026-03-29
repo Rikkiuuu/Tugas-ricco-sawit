@@ -37,27 +37,21 @@ export default async function handler(req, res) {
   }
 
   const {
-    mode           = 'iphone',   // 'iphone' | 'android'
-    // Profile
+    mode           = 'iphone',
     contactName    = 'Contact',
     contactStatus  = 'online',
     avatarUrl      = '',
     avatarInitial  = 'C',
     avatarColor    = '#00a884',
-    // Message
     message        = 'Hello!',
     messageTime    = '08.08',
     senderType     = 'received',
     sponsored      = '',
-    // Reactions (array of emoji strings)
     reactions,
-    // Menu items
     menuItems,
     showDelete     = true,
-    // Status bar
     statusTime     = '08.25',
-    // Output
-    scale          = 2,          // device pixel ratio (1 or 2 for retina)
+    scale          = 2,
   } = body;
 
   const opts = {
@@ -76,7 +70,6 @@ export default async function handler(req, res) {
     statusTime,
   };
 
-  // Build HTML template
   const html = mode === 'android'
     ? buildAndroidTemplate(opts)
     : buildIphoneTemplate(opts);
@@ -84,17 +77,26 @@ export default async function handler(req, res) {
   // ── Puppeteer ─────────────────────────────────────────────────────────────
   let browser;
   try {
+    // Fix: tambah no-sandbox flags dan pakai chromium.defaultViewport
+    const executablePath = await chromium.executablePath();
+
     browser = await puppeteer.launch({
-      args:            chromium.args,
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+      ],
       defaultViewport: { width: 390, height: 800, deviceScaleFactor: Number(scale) },
-      executablePath:  await chromium.executablePath(),
-      headless:        chromium.headless,
+      executablePath,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // Get actual content height
     const bodyH = await page.evaluate(() => document.body.scrollHeight);
     await page.setViewport({ width: 390, height: bodyH, deviceScaleFactor: Number(scale) });
 
